@@ -1,0 +1,51 @@
+# Compiled object files and libraries
+*.o
+*.obj
+*.lo
+*.slo
+*.la
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake build directories
+/build/
+/CMakeFiles/
+/CMakeScripts/
+/Makefile
+/CMakeCache.txt
+/*.cmake
+
+# VS Code
+.vscode/
+
+# Qt Creator
+*.user*
+*.pro.user*
+
+# CLion
+.idea/
+*.iml
+
+# FFmpeg generated files (if any)
+*.yuv
+*.rgb
+
+# Test output
+/tests/*.o
+/tests/*.exe
+
+# videos
+*.mp4
+*.mov
