@@ -1,3 +1,4 @@
+/*Duplicated code in the main
 #include "encoder.hpp"
 #include <iostream>
 #include <cstdint>
@@ -16,7 +17,7 @@ void Encoder::encodeFrame(const std::vector<uint8_t> &yuvBuffer)
 Encoder::~Encoder()
 {
     // TODO: cleanup encoder resources
-}
+}*/
 
 /* On Windows, the standard popen() and pclose() functions are named _popen() and _pclose().
 
