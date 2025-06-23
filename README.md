@@ -24,7 +24,6 @@ Project created by:
 * Can Ozkan
 * Tarun Zacharias Akkarakalam
 * Wonil Choi
-* Veronica Kwok 
 
 This project was created at the University of Europe for Applied Sciences (Campus Innovation Hub in Potsdam).
 
