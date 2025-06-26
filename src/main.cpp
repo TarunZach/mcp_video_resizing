@@ -10,10 +10,16 @@ int main(int argc, char **argv)
         std::cerr << "Usage: " << argv[0] << " <input.mp4> <output.mp4>\n";
         return -1;
     }
+
     std::string inPath = argv[1], outPath = argv[2];
     VideoReader reader(inPath);
     OpenCLDriver processor;
-    Encoder encoder(outPath);
+
+    int width = reader.getWidth();
+    int height = reader.getHeight();
+    double fps = reader.getFPS();
+
+    Encoder encoder(outPath, width, height, fps);
 
     cv::Mat frame;
     std::vector<uint8_t> yuv;
@@ -22,5 +28,7 @@ int main(int argc, char **argv)
         processor.processFrame(frame, yuv);
         encoder.encodeFrame(yuv);
     }
+
+    encoder.finish();
     return 0;
 }
