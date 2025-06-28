@@ -10,20 +10,21 @@
 #endif
 #include <opencv2/core.hpp>
 
-class OpenCLDriver {
+class OpenCLDriver
+{
 public:
     OpenCLDriver();
     ~OpenCLDriver();
 
-    void processFrame(const cv::Mat &input, std::vector<uint8_t> &outputYUV);
+    void processFrame(const cv::Mat &input, std::vector<uint8_t> &outputYUV, int targetWidth, int targetHeight);
 
 private:
-    cl_context       context_;
+    cl_context context_;
     cl_command_queue queue_;
-    cl_program       program_;
-    cl_kernel        resizeKernel_;
-    cl_kernel        convertKernel_;
-    cl_device_id     device_;
+    cl_program program_;
+    cl_kernel resizeKernel_;
+    cl_kernel convertKernel_;
+    cl_device_id device_;
 
     void initOpenCL();
     void loadKernel(const std::string &filePath);

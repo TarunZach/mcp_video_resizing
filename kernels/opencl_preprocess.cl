@@ -1,3 +1,4 @@
+// resize_bilinear
 __kernel void resize_bilinear(__global const uchar *src, int srcW, int srcH,
                               __global uchar *dst, int dstW, int dstH)
 {
@@ -36,7 +37,7 @@ __kernel void resize_bilinear(__global const uchar *src, int srcW, int srcH,
     }
 }
 
-
+// bgr_to_yuv420
 __kernel void bgr_to_yuv420(__global const uchar* bgr, int width, int height,
                             __global uchar* dstY,
                             __global uchar* dstU,
@@ -52,15 +53,18 @@ __kernel void bgr_to_yuv420(__global const uchar* bgr, int width, int height,
     float G = (float)bgr[idx + 1];
     float R = (float)bgr[idx + 2];
 
+    // Calculate and store Y channel
     float Y =  0.114f * B + 0.587f * G + 0.299f * R;
     dstY[y * width + x] = (uchar)clamp(Y, 0.0f, 255.0f);
 
-    // For 2x2 pixel blocks, calculate and write U/V subsample once
+    // Subsampled U and V (once per 2x2 block)
     if ((x % 2 == 0) && (y % 2 == 0)) {
-        float sumU = 0, sumV = 0;
+        float sumU = 0.0f, sumV = 0.0f;
         int samples = 0;
-        for(int dy=0; dy<2; ++dy)
-            for(int dx=0; dx<2; ++dx) {
+        int uv_width = width / 2;
+
+        for(int dy = 0; dy < 2; ++dy) {
+            for(int dx = 0; dx < 2; ++dx) {
                 int sx = x + dx;
                 int sy = y + dy;
                 if(sx < width && sy < height) {
@@ -68,15 +72,17 @@ __kernel void bgr_to_yuv420(__global const uchar* bgr, int width, int height,
                     float b = (float)bgr[sidx + 0];
                     float g = (float)bgr[sidx + 1];
                     float r = (float)bgr[sidx + 2];
-                    float y =  0.114f * b + 0.587f * g + 0.299f * r;
-                    float u = (b - y) * 0.565f + 128.0f;
-                    float v = (r - y) * 0.713f + 128.0f;
+                    float y_val =  0.114f * b + 0.587f * g + 0.299f * r;
+                    float u = (b - y_val) * 0.565f + 128.0f;
+                    float v = (r - y_val) * 0.713f + 128.0f;
                     sumU += u;
                     sumV += v;
                     samples++;
                 }
             }
-        int uv_idx = (y / 2) * (width / 2) + (x / 2);
+        }
+
+        int uv_idx = (y / 2) * uv_width + (x / 2);
         dstU[uv_idx] = (uchar)clamp(sumU / samples, 0.0f, 255.0f);
         dstV[uv_idx] = (uchar)clamp(sumV / samples, 0.0f, 255.0f);
     }

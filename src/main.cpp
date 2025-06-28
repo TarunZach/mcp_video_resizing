@@ -1,6 +1,6 @@
-#include "../include/video_reader.hpp"
-#include "../include/opencl_driver.hpp"
-#include "../include/encoder.hpp"
+#include "video_reader.hpp"
+#include "opencl_driver.hpp"
+#include "encoder.hpp"
 #include <iostream>
 
 int main(int argc, char **argv)
@@ -15,17 +15,26 @@ int main(int argc, char **argv)
     VideoReader reader(inPath);
     OpenCLDriver processor;
 
-    int width = reader.getWidth();
-    int height = reader.getHeight();
+    int inputWidth = reader.getWidth();
+    int inputHeight = reader.getHeight();
     double fps = reader.getFPS();
 
-    Encoder encoder(outPath, width, height, fps);
+    // For now, resize to 50%
+    int outputWidth = inputWidth / 2;
+    int outputHeight = inputHeight / 2;
+
+    // Make sure width and height are even (for YUV420)
+    outputWidth &= ~1;
+    outputHeight &= ~1;
+
+    Encoder encoder(outPath, outputWidth, outputHeight, fps);
 
     cv::Mat frame;
     std::vector<uint8_t> yuv;
+
     while (reader.getNextFrame(frame))
     {
-        processor.processFrame(frame, yuv);
+        processor.processFrame(frame, yuv, outputWidth, outputHeight);
         encoder.encodeFrame(yuv);
     }
 
