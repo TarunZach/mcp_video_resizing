@@ -1,4 +1,4 @@
-add_executable(tests test.cpp)
+add_executable(tests tests.cpp)
 
 target_include_directories(tests
   PRIVATE
@@ -6,7 +6,7 @@ target_include_directories(tests
 )
 
 target_link_libraries(tests
-    PRIVATE
+  PRIVATE
     ResizerLib
     VideoReaderLib
     EncoderLib
@@ -16,7 +16,6 @@ target_link_libraries(tests
     GTest::Main
 )
 
-enable_testing()
 add_test(
   NAME ResizeTests
   COMMAND tests
