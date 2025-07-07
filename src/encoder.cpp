@@ -2,6 +2,34 @@
 #include <stdexcept>
 #include <iostream>
 
+/*
+The CRF (Constant Rate Factor) in x264 can range from 0 (lossless, very large files) up to 51 (lowest quality, smallest files). In practice you’ll typically pick something between about 18 (visually lossless) and 28 (high compression) depending on your needs.
+
+The built-in x264 presets trade off encoding speed vs. compression efficiency. From fastest (least compression) to slowest (best compression), the standard preset names are:
+
+- ultrafast
+
+- superfast
+
+- veryfast
+
+- faster
+
+- fast
+
+- medium (the default)
+
+- slow
+
+- slower
+
+- veryslow
+
+- placebo (only marginal gains over veryslow, but much slower)
+
+So, for example, if you want quickest encoding with larger files you’d use -preset ultrafast, whereas for best file‐size reduction (at the cost of CPU time) you’d choose -preset veryslow (or even placebo). A common balance is -preset veryfast or -preset fast.
+*/
+
 Encoder::Encoder(const std::string &outputPath, int w, int h, double f)
     : ffmpegPipe(nullptr), width(w), height(h), fps(f)
 {

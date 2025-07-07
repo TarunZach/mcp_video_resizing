@@ -18,7 +18,7 @@ int main(int argc, char **argv)
     const std::string inPath = argv[1];
     const std::string outPath = argv[2];
 
-    // --- Setup ---
+    // Setup
     VideoReader reader(inPath);
     OpenCLDriver processor;
     Encoder encoder(outPath,
@@ -29,14 +29,14 @@ int main(int argc, char **argv)
     cv::Mat frame;
     std::vector<uint8_t> yuv;
 
-    // --- Timing accumulators ---
+    // Timing accumulators
     size_t framesProcessed = 0;
     double totalProcSec = 0.0; // GPU resize+convert time
     double totalEncSec = 0.0;  // encoding time
 
     auto tStart = std::chrono::high_resolution_clock::now();
 
-    // --- Main loop ---
+    // Main loop
     while (reader.getNextFrame(frame))
     {
         // 1) Pre‐process (OpenCL)
