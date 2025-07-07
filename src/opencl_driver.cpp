@@ -2,6 +2,8 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <vector>
+#include <cstdlib>
 
 OpenCLDriver::OpenCLDriver()
 {
@@ -28,29 +30,29 @@ void OpenCLDriver::initOpenCL()
     err = clGetPlatformIDs(1, &platform, nullptr);
     if (err != CL_SUCCESS)
     {
-        std::cerr << "clGetPlatformIDs failed";
-        exit(1);
+        std::cerr << "clGetPlatformIDs failed\n";
+        std::exit(1);
     }
 
     err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device_, nullptr);
     if (err != CL_SUCCESS)
     {
-        std::cerr << "clGetDeviceIDs failed";
-        exit(1);
+        std::cerr << "clGetDeviceIDs failed\n";
+        std::exit(1);
     }
 
     context_ = clCreateContext(nullptr, 1, &device_, nullptr, nullptr, &err);
     if (err != CL_SUCCESS)
     {
-        std::cerr << "clCreateContext failed";
-        exit(1);
+        std::cerr << "clCreateContext failed\n";
+        std::exit(1);
     }
 
     queue_ = clCreateCommandQueue(context_, device_, 0, &err);
     if (err != CL_SUCCESS)
     {
-        std::cerr << "clCreateCommandQueue failed";
-        exit(1);
+        std::cerr << "clCreateCommandQueue failed\n";
+        std::exit(1);
     }
 }
 
@@ -59,8 +61,8 @@ void OpenCLDriver::loadKernel(const std::string &filePath)
     std::ifstream file(filePath);
     if (!file.is_open())
     {
-        std::cerr << "Cannot open " << filePath;
-        exit(1);
+        std::cerr << "Cannot open " << filePath << "\n";
+        std::exit(1);
     }
     std::string src((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     const char *source = src.c_str();
@@ -68,8 +70,8 @@ void OpenCLDriver::loadKernel(const std::string &filePath)
     program_ = clCreateProgramWithSource(context_, 1, &source, nullptr, &err);
     if (err != CL_SUCCESS)
     {
-        std::cerr << "clCreateProgramWithSource failed";
-        exit(1);
+        std::cerr << "clCreateProgramWithSource failed\n";
+        std::exit(1);
     }
     err = clBuildProgram(program_, 1, &device_, nullptr, nullptr, nullptr);
     if (err != CL_SUCCESS)
@@ -78,48 +80,83 @@ void OpenCLDriver::loadKernel(const std::string &filePath)
         clGetProgramBuildInfo(program_, device_, CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
         std::vector<char> log(logSize);
         clGetProgramBuildInfo(program_, device_, CL_PROGRAM_BUILD_LOG, logSize, log.data(), nullptr);
-        std::cerr << log.data();
-        exit(1);
+        std::cerr << log.data() << "\n";
+        std::exit(1);
     }
 }
 
-void OpenCLDriver::processFrame(const cv::Mat &input, std::vector<uint8_t> &outputYUV, int targetWidth, int targetHeight)
+void OpenCLDriver::processFrame(const cv::Mat &input,
+                                std::vector<uint8_t> &outputYUV,
+                                int targetWidth,
+                                int targetHeight)
 {
     cl_int err;
-    // TODO: Define target dimensions for resizing
-    // int targetWidth = targ;
-    // int targetHeight = 480;
 
-    // Step 1: Create buffers
-    size_t inputSize = input.total() * input.elemSize();
-    size_t resizedSize = targetWidth * targetHeight * 3; // still BGR
-    size_t yuvSize = targetWidth * targetHeight * 3 / 2; // YUV420
+    // Compute buffer sizes
+    size_t inputSize = input.total() * input.elemSize();    // BGR24
+    size_t resizedSize = targetWidth * targetHeight * 3;    // BGR24
+    size_t ySize = targetWidth * targetHeight;              // Y plane
+    size_t uvSize = (targetWidth / 2) * (targetHeight / 2); // U or V plane
+    size_t yuvSize = ySize + 2 * uvSize;                    // total YUV420
 
-    cl_mem inputBuffer = clCreateBuffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                        inputSize, (void *)input.data, &err);
+    // Create OpenCL buffers
+    cl_mem inputBuffer = clCreateBuffer(context_,
+                                        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                        inputSize,
+                                        (void *)input.data,
+                                        &err);
     if (err != CL_SUCCESS)
     {
-        std::cerr << "Failed to create inputBuffer\n";
-        exit(1);
+        std::cerr << "Failed to create inputBuffer: " << err << "\n";
+        std::exit(1);
     }
 
-    cl_mem resizedBuffer = clCreateBuffer(context_, CL_MEM_READ_WRITE,
-                                          resizedSize, nullptr, &err);
+    cl_mem resizedBuffer = clCreateBuffer(context_,
+                                          CL_MEM_READ_WRITE,
+                                          resizedSize,
+                                          nullptr,
+                                          &err);
     if (err != CL_SUCCESS)
     {
-        std::cerr << "Failed to create resizedBuffer\n";
-        exit(1);
+        std::cerr << "Failed to create resizedBuffer: " << err << "\n";
+        std::exit(1);
     }
 
-    cl_mem yuvBuffer = clCreateBuffer(context_, CL_MEM_WRITE_ONLY,
-                                      yuvSize, nullptr, &err);
+    // Separate Y, U, V buffers
+    cl_mem yBuffer = clCreateBuffer(context_,
+                                    CL_MEM_WRITE_ONLY,
+                                    ySize,
+                                    nullptr,
+                                    &err);
     if (err != CL_SUCCESS)
     {
-        std::cerr << "Failed to create yuvBuffer\n";
-        exit(1);
+        std::cerr << "Failed to create yBuffer: " << err << "\n";
+        std::exit(1);
     }
 
-    // Step 2: Set arguments for resize_bilinear
+    cl_mem uBuffer = clCreateBuffer(context_,
+                                    CL_MEM_WRITE_ONLY,
+                                    uvSize,
+                                    nullptr,
+                                    &err);
+    if (err != CL_SUCCESS)
+    {
+        std::cerr << "Failed to create uBuffer: " << err << "\n";
+        std::exit(1);
+    }
+
+    cl_mem vBuffer = clCreateBuffer(context_,
+                                    CL_MEM_WRITE_ONLY,
+                                    uvSize,
+                                    nullptr,
+                                    &err);
+    if (err != CL_SUCCESS)
+    {
+        std::cerr << "Failed to create vBuffer: " << err << "\n";
+        std::exit(1);
+    }
+
+    // 1) Resize kernel
     err = clSetKernelArg(resizeKernel_, 0, sizeof(cl_mem), &inputBuffer);
     err |= clSetKernelArg(resizeKernel_, 1, sizeof(int), &input.cols);
     err |= clSetKernelArg(resizeKernel_, 2, sizeof(int), &input.rows);
@@ -128,48 +165,58 @@ void OpenCLDriver::processFrame(const cv::Mat &input, std::vector<uint8_t> &outp
     err |= clSetKernelArg(resizeKernel_, 5, sizeof(int), &targetHeight);
     if (err != CL_SUCCESS)
     {
-        std::cerr << "Failed to set resize kernel args\n";
-        exit(1);
+        std::cerr << "Failed to set resize kernel args: " << err << "\n";
+        std::exit(1);
     }
 
-    size_t globalSizeResize[2] = {(size_t)targetWidth, (size_t)targetHeight};
-    err = clEnqueueNDRangeKernel(queue_, resizeKernel_, 2, nullptr, globalSizeResize, nullptr, 0, nullptr, nullptr);
+    size_t globalResize[2] = {(size_t)targetWidth, (size_t)targetHeight};
+    err = clEnqueueNDRangeKernel(queue_, resizeKernel_, 2, nullptr, globalResize, nullptr, 0, nullptr, nullptr);
     if (err != CL_SUCCESS)
     {
-        std::cerr << "Resize kernel launch failed\n";
-        exit(1);
+        std::cerr << "Resize kernel launch failed: " << err << "\n";
+        std::exit(1);
     }
 
-    // Step 3: Set arguments for bgr_to_yuv420
+    // 2) Convert BGR->YUV420 kernel
     err = clSetKernelArg(convertKernel_, 0, sizeof(cl_mem), &resizedBuffer);
-    err |= clSetKernelArg(convertKernel_, 1, sizeof(cl_mem), &yuvBuffer);
-    err |= clSetKernelArg(convertKernel_, 2, sizeof(int), &targetWidth);
-    err |= clSetKernelArg(convertKernel_, 3, sizeof(int), &targetHeight);
+    err |= clSetKernelArg(convertKernel_, 1, sizeof(int), &targetWidth);
+    err |= clSetKernelArg(convertKernel_, 2, sizeof(int), &targetHeight);
+    err |= clSetKernelArg(convertKernel_, 3, sizeof(cl_mem), &yBuffer);
+    err |= clSetKernelArg(convertKernel_, 4, sizeof(cl_mem), &uBuffer);
+    err |= clSetKernelArg(convertKernel_, 5, sizeof(cl_mem), &vBuffer);
     if (err != CL_SUCCESS)
     {
-        std::cerr << "Failed to set convert kernel args\n";
-        exit(1);
+        std::cerr << "Failed to set convert kernel args: " << err << "\n";
+        std::exit(1);
     }
 
-    size_t globalSizeConvert[2] = {(size_t)targetWidth, (size_t)targetHeight};
-    err = clEnqueueNDRangeKernel(queue_, convertKernel_, 2, nullptr, globalSizeConvert, nullptr, 0, nullptr, nullptr);
+    size_t globalConvert[2] = {(size_t)targetWidth, (size_t)targetHeight};
+    err = clEnqueueNDRangeKernel(queue_, convertKernel_, 2, nullptr, globalConvert, nullptr, 0, nullptr, nullptr);
     if (err != CL_SUCCESS)
     {
-        std::cerr << "Convert kernel launch failed\n";
-        exit(1);
+        std::cerr << "Convert kernel launch failed: " << err << "\n";
+        std::exit(1);
     }
 
-    // Step 4: Read back YUV420 output
+    // 3) Read back Y, U, V planes
+    std::vector<uint8_t> planeY(ySize), planeU(uvSize), planeV(uvSize);
+    clEnqueueReadBuffer(queue_, yBuffer, CL_TRUE, 0, ySize, planeY.data(), 0, nullptr, nullptr);
+    clEnqueueReadBuffer(queue_, uBuffer, CL_TRUE, 0, uvSize, planeU.data(), 0, nullptr, nullptr);
+    clEnqueueReadBuffer(queue_, vBuffer, CL_TRUE, 0, uvSize, planeV.data(), 0, nullptr, nullptr);
+
+    // 4) Stitch into single YUV420 buffer: Y plane, then U plane, then V plane
     outputYUV.resize(yuvSize);
-    err = clEnqueueReadBuffer(queue_, yuvBuffer, CL_TRUE, 0, yuvSize, outputYUV.data(), 0, nullptr, nullptr);
-    if (err != CL_SUCCESS)
-    {
-        std::cerr << "Failed to read YUV buffer\n";
-        exit(1);
-    }
+    size_t offset = 0;
+    memcpy(outputYUV.data() + offset, planeY.data(), ySize);
+    offset += ySize;
+    memcpy(outputYUV.data() + offset, planeU.data(), uvSize);
+    offset += uvSize;
+    memcpy(outputYUV.data() + offset, planeV.data(), uvSize);
 
-    // Step 5: Cleanup
+    // 5) Cleanup
     clReleaseMemObject(inputBuffer);
     clReleaseMemObject(resizedBuffer);
-    clReleaseMemObject(yuvBuffer);
+    clReleaseMemObject(yBuffer);
+    clReleaseMemObject(uBuffer);
+    clReleaseMemObject(vBuffer);
 }

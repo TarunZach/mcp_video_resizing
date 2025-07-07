@@ -29,6 +29,7 @@
 
 # VS Code
 .vscode/
+/data
 
 # Qt Creator
 *.user*

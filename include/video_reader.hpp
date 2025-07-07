@@ -4,10 +4,15 @@
 #include <string>
 #include <opencv2/opencv.hpp>
 
-class VideoReader {
+class VideoReader
+{
 public:
     VideoReader(const std::string &path);
     bool getNextFrame(cv::Mat &frame);
+
+    int getWidth() const;
+    int getHeight() const;
+    double getFPS() const;
 
 private:
     cv::VideoCapture cap_;
