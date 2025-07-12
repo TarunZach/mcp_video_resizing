@@ -3,27 +3,19 @@
 
 #include <QObject>
 #include <QVector>
-#include <QMap>
 #include <QString>
 #include <QTimer>
 
-/**
- * @brief Struct to hold process statistics.
- */
-struct ProcessStats {
-    int pid;
-    QString name;
-    double cpuUsage;   // percent
-    double memUsage;   // MB
-    double gpuUsage;   // percent (best effort)
-};
+#include "ProcessStats.hpp"
 
 /**
  * @brief ProcessMonitor class periodically fetches stats for a set of PIDs.
  * Emits a signal with the latest stats for all tracked processes.
  */
-class ProcessMonitor : public QObject {
-    Q_OBJECT // Ensure Q_OBJECT is present for Qt meta-object system
+class ProcessMonitor : public QObject
+{
+    Q_OBJECT
+
 public:
     explicit ProcessMonitor(QObject *parent = nullptr);
     ~ProcessMonitor();
@@ -53,16 +45,15 @@ signals:
     void statsUpdated(const QVector<ProcessStats> &stats);
 
 private slots:
+    /**
+     * @brief Called on QTimer timeout to fetch and emit updated stats.
+     */
     void updateStats();
 
-protected:
-    void timerEvent(QTimerEvent *event) override;
-
 private:
-    QVector<int> m_pids;
-    QTimer *m_timer;
-    // Platform-specific helpers
     ProcessStats getStatsForPID(int pid);
+    QTimer *m_timer;
+    QVector<int> m_pids;
 };
 
 #endif // PROCESSMONITOR_HPP
