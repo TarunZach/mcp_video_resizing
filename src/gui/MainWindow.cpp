@@ -9,13 +9,14 @@
 #include <QCoreApplication>
 #include <QtConcurrent>
 #include <QScrollArea>
+#include <QValueAxis>
 #include "TimerEventFilter.hpp"
 
 void MainWindow::setupCharts()
 {
-    cpuSeries = new QLineSeries();
-    memSeries = new QLineSeries();
-    gpuSeries = new QLineSeries();
+    cpuSeries = new QLineSeries(this);
+    memSeries = new QLineSeries(this);
+    gpuSeries = new QLineSeries(this);
 
     auto cpuChart = new QChart();
     cpuChart->addSeries(cpuSeries);
@@ -38,12 +39,52 @@ void MainWindow::setupCharts()
 
 void MainWindow::appendChartPoint(QLineSeries *series, double value)
 {
-    auto points = series->points();
-    double x = points.isEmpty() ? 0 : points.last().x() + 1;
-    points.append({x, value});
-    if (points.size() > 100)
-        points.remove(0, points.size() - 100);
-    series->replace(points);
+    double x = series->count() > 0 ? series->at(series->count() - 1).x() + 1 : 0;
+    series->append(x, value);
+    if (series->count() > 100)
+        series->removePoints(0, series->count() - 100);
+
+    // Move the visible window
+    if (series->chart())
+    {
+        auto axesX = series->chart()->axes(Qt::Horizontal);
+        if (!axesX.isEmpty())
+        {
+            double xMax = x;
+            double xMin = xMax - 100;
+            if (xMin < 0)
+                xMin = 0;
+            axesX.first()->setRange(xMin, xMax);
+        }
+
+        // Auto-scale Y and set more grid lines
+        auto axesY = series->chart()->axes(Qt::Vertical);
+        if (!axesY.isEmpty())
+        {
+            double maxY = value;
+            int count = series->count();
+            for (int i = qMax(0, count - 100); i < count; ++i)
+            {
+                maxY = qMax(maxY, series->at(i).y());
+            }
+            double upper = maxY * 1.1;
+            if (upper < 100)
+                upper = 100;
+            QValueAxis *axisY = qobject_cast<QValueAxis *>(axesY.first());
+            if (axisY)
+            {
+                axisY->setRange(0, upper);
+                axisY->setTickCount(8); // More grid lines
+            }
+        }
+        series->chart()->update();
+    }
+    if (cpuChartView)
+        cpuChartView->repaint();
+    if (memChartView)
+        memChartView->repaint();
+    if (gpuChartView)
+        gpuChartView->repaint();
 }
 
 MainWindow::MainWindow(QWidget *parent)

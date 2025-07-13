@@ -12,8 +12,9 @@
 #include <QVector>
 #include <QPointer>
 
-// bring in all of QtCharts and its namespace macro
-#include <QtCharts/QtCharts>
+// Qt6: Just include the QtCharts headers
+#include <QChartView>
+#include <QLineSeries>
 
 #include "ProcessStats.hpp"
 #include "ProcessMonitor.hpp"
@@ -62,7 +63,7 @@ private:
     QLabel *procNameLabel;
     QListWidget *threadList;
 
-    // Charts (no namespace qualifier any more)
+    // Charts (global namespace in Qt6)
     QChartView *cpuChartView;
     QChartView *memChartView;
     QChartView *gpuChartView;
@@ -74,7 +75,7 @@ private:
     QTimer *updateTimer;
     QElapsedTimer *timer;
     ProcessMonitor *procMonitor;
-    QPointer<VideoCompressorTask> compressorTask; // <-- single, safe member
+    QPointer<VideoCompressorTask> compressorTask;
 
     bool compressing = false;
     QString inputFilePath;
