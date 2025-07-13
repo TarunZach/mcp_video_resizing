@@ -141,6 +141,6 @@ or double-click `video_gui.exe` from the build directory.
 ## License
 
 MIT License © 2025
-Tarun Zacharias Akkarakalam
-Can Özkan
+Tarun Zacharias Akkarakalam,
+Can Özkan,
 Wonil Choi
