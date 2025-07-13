@@ -1,21 +1,24 @@
 #include "ProcessMonitor.hpp"
-
 #include <QTimer>
 #include <QDebug>
-#include <QFile>
-#include <QTextStream>
-#include <QProcess>
-#include <QFileInfo>
-#include <QRegularExpression>
+#include <QCoreApplication>
 #include <QDateTime>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <psapi.h>
+#include <tlhelp32.h>
+#include <tchar.h>
 #endif
 
 #ifdef Q_OS_LINUX
 #include <unistd.h>
+#include <QFile>
+#include <QTextStream>
+#endif
+
+#ifdef Q_OS_MAC
+#include <mach/mach.h>
 #endif
 
 ProcessMonitor::ProcessMonitor(QObject *parent)
@@ -58,10 +61,10 @@ void ProcessMonitor::updateStats()
     emit statsUpdated(stats);
 }
 
-// void ProcessMonitor::updateStatsNow()
-// {
-//     updateStats();
-// }
+void ProcessMonitor::updateStatsNow()
+{
+    updateStats();
+}
 
 ProcessStats ProcessMonitor::getStatsForPID(int pid)
 {
@@ -73,40 +76,37 @@ ProcessStats ProcessMonitor::getStatsForPID(int pid)
     stat.gpuUsage = 0.0;
 
 #if defined(Q_OS_MAC)
-    // --- Real-time CPU% calculation for macOS ---
-    static QMap<int, QPair<double, qint64>> lastCpu;
-    QString cmd = QString("ps -p %1 -o %cpu=,rss=,comm=").arg(pid);
-    QProcess ps;
-    ps.start(cmd);
-    ps.waitForFinished(500);
-    QString output = ps.readAllStandardOutput().trimmed();
-    if (!output.isEmpty())
+    // CPU usage (macOS, per process)
+    static quint64 lastTotalTime = 0;
+    static qint64 lastTimestamp = 0;
+    task_thread_times_info_data_t info;
+    mach_msg_type_number_t count = TASK_THREAD_TIMES_INFO_COUNT;
+    kern_return_t kr = task_info(mach_task_self(), TASK_THREAD_TIMES_INFO, (task_info_t)&info, &count);
+    if (kr == KERN_SUCCESS)
     {
-        QStringList parts = output.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-        if (parts.size() >= 3)
+        quint64 totalTime = info.user_time.seconds * 1000000 + info.user_time.microseconds +
+                            info.system_time.seconds * 1000000 + info.system_time.microseconds;
+        qint64 now = QDateTime::currentMSecsSinceEpoch();
+        double percent = 0.0;
+        if (lastTimestamp > 0)
         {
-            double currCpu = parts[0].toDouble();
-            double currRssMb = parts[1].toDouble() / 1024.0;
-            QFileInfo fi(parts[2]);
-            stat.name = fi.fileName();
-            stat.memUsage = currRssMb;
-
-            qint64 now = QDateTime::currentMSecsSinceEpoch();
-
-            if (lastCpu.contains(pid))
-            {
-                double prevCpu = lastCpu[pid].first;
-                qint64 prevTime = lastCpu[pid].second;
-                double deltaSecs = (now - prevTime) / 1000.0;
-                stat.cpuUsage = (currCpu + prevCpu) / 2.0;
-            }
-            else
-            {
-                stat.cpuUsage = currCpu;
-            }
-            lastCpu[pid] = qMakePair(currCpu, now);
+            double deltaCPU = (totalTime - lastTotalTime) / 1000000.0;
+            double deltaTime = (now - lastTimestamp) / 1000.0;
+            percent = (deltaCPU / deltaTime) * 100.0;
         }
+        stat.cpuUsage = percent;
+        lastTotalTime = totalTime;
+        lastTimestamp = now;
     }
+
+    // Memory usage (macOS)
+    mach_task_basic_info_data_t minfo;
+    mach_msg_type_number_t mcount = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&minfo, &mcount) == KERN_SUCCESS)
+        stat.memUsage = minfo.resident_size / (1024.0 * 1024.0);
+
+    stat.gpuUsage = 0.0; // Not available via public API
+    stat.name = QCoreApplication::applicationName();
 #endif
 
 #if defined(Q_OS_WIN)
@@ -168,9 +168,7 @@ ProcessStats ProcessMonitor::getStatsForPID(int pid)
         {
             QString line = in.readLine();
             if (line.startsWith("Name:"))
-            {
                 stat.name = line.section(':', 1).trimmed();
-            }
             if (line.startsWith("VmRSS:"))
             {
                 QString value = line.section(':', 1).trimmed().section(' ', 0, 0);

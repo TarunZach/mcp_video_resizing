@@ -1,7 +1,4 @@
-// src/gui/MainWindow.cpp
-
 #include "MainWindow.hpp"
-
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -60,19 +57,22 @@ MainWindow::MainWindow(QWidget *parent)
     updateTimer->start(100);
 
     timer = new QElapsedTimer();
+
+    // Start ProcessMonitor ONCE
     procMonitor = new ProcessMonitor(this);
     connect(procMonitor, &ProcessMonitor::statsUpdated, this, &MainWindow::updateProcessStats);
+
+    // Always monitor our own process
+    QVector<int> pids{int(QCoreApplication::applicationPid())};
+    procMonitor->setPIDs(pids);
+    procMonitor->start(100);
 }
 
 MainWindow::~MainWindow()
 {
     if (updateTimer)
         updateTimer->stop();
-    if (procMonitor)
-    {
-        procMonitor->stop();
-        procMonitor->deleteLater();
-    }
+    // auto-deletes as a QObject child.
 }
 
 void MainWindow::setupUi()
@@ -211,27 +211,12 @@ void MainWindow::onStartCompression()
         QMetaObject::invokeMethod(compressorTask, "deleteLater", Qt::QueuedConnection);
         compressorTask = nullptr;
     }
-    if (procMonitor)
-    {
-        procMonitor->stop();
-        procMonitor->deleteLater();
-        procMonitor = nullptr;
-    }
 
-    procMonitor = new ProcessMonitor(this);
-    connect(procMonitor, &ProcessMonitor::statsUpdated, this, &MainWindow::updateProcessStats);
+    // No need to touch procMonitor!
 
     compressorTask = new VideoCompressorTask(this);
     connect(compressorTask, &VideoCompressorTask::progress, this, &MainWindow::onCompressionProgress);
     connect(compressorTask, &VideoCompressorTask::finished, this, &MainWindow::onCompressionFinished);
-    // // Real-time update: connect for instant stats update!
-    // connect(compressorTask, &VideoCompressorTask::progressStatsUpdateRequested, procMonitor, &ProcessMonitor::updateStatsNow);
-    // // Optional: update elapsed time immediately as well
-    // connect(compressorTask, &VideoCompressorTask::progressStatsUpdateRequested, this, &MainWindow::onUpdateStats);
-
-    QVector<int> pids{int(QCoreApplication::applicationPid())};
-    procMonitor->setPIDs(pids);
-    procMonitor->start(100);
 
     auto task = compressorTask;
     QtConcurrent::run([task, this]
@@ -253,7 +238,7 @@ void MainWindow::onCompressionFinished(bool success, const QString &err)
                               {
       compressing=false;
       startBtn->setEnabled(true);
-      // if(procMonitor){ procMonitor->stop(); procMonitor->deleteLater(); }
+      // Do NOT stop/delete procMonitor!
       if(success){
         etaLabel->setText("Done");
         threadList->addItem("Compression complete.");
@@ -269,6 +254,7 @@ void MainWindow::onCompressionFinished(bool success, const QString &err)
 
 void MainWindow::onUpdateStats()
 {
+    // update other UI items at timer intervals
     if (!compressing)
         return;
     elapsedLabel->setText(
@@ -280,6 +266,8 @@ void MainWindow::updateProcessStats(const QVector<ProcessStats> &stats)
     if (stats.isEmpty())
         return;
     auto const &ps = stats.first();
+
+    qDebug() << "CPU:" << ps.cpuUsage << "MEM:" << ps.memUsage << "GPU:" << ps.gpuUsage;
     cpuLabel->setText(QString::number(ps.cpuUsage, 'f', 1) + "%");
     memLabel->setText(QString::number(ps.memUsage, 'f', 1) + " MB");
     gpuLabel->setText(QString::number(ps.gpuUsage, 'f', 1) + "%");

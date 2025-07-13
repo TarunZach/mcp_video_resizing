@@ -50,8 +50,8 @@ private slots:
      */
     void updateStats();
 
-    // public slots:
-    //     void updateStatsNow();
+public slots:
+    void updateStatsNow();
 
 private:
     ProcessStats getStatsForPID(int pid);
