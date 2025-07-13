@@ -13,4 +13,5 @@ public:
 signals:
   void progress(double percent, double elapsed, double eta);
   void finished(bool success, const QString &errorMsg);
+  void progressStatsUpdateRequested();
 };

@@ -74,6 +74,7 @@ void VideoCompressorTask::compress(const QString &inPathQs,
                 double percent = (100.0 * processed) / reader.getFPS() /*approx frames*/;
                 double eta     = elapsed * (1.0/percent*100 - 1.0);
                 emit progress(percent, elapsed, eta);
+                // emit progressStatsUpdateRequested();
             }
             encoder.finish(); });
 

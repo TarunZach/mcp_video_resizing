@@ -11,9 +11,8 @@
 #include <QFileInfo>
 #include <QCoreApplication>
 #include <QtConcurrent>
+#include <QScrollArea>
 #include "TimerEventFilter.hpp"
-
-#include <QPointer>
 
 void MainWindow::setupCharts()
 {
@@ -209,15 +208,9 @@ void MainWindow::onStartCompression()
 
     if (compressorTask)
     {
-        qDebug() << "About to call deleteLater on compressorTask, address:" << static_cast<void *>(compressorTask);
         QMetaObject::invokeMethod(compressorTask, "deleteLater", Qt::QueuedConnection);
         compressorTask = nullptr;
     }
-    else
-    {
-        qDebug() << "compressorTask is already null!";
-    }
-
     if (procMonitor)
     {
         procMonitor->stop();
@@ -231,6 +224,10 @@ void MainWindow::onStartCompression()
     compressorTask = new VideoCompressorTask(this);
     connect(compressorTask, &VideoCompressorTask::progress, this, &MainWindow::onCompressionProgress);
     connect(compressorTask, &VideoCompressorTask::finished, this, &MainWindow::onCompressionFinished);
+    // // Real-time update: connect for instant stats update!
+    // connect(compressorTask, &VideoCompressorTask::progressStatsUpdateRequested, procMonitor, &ProcessMonitor::updateStatsNow);
+    // // Optional: update elapsed time immediately as well
+    // connect(compressorTask, &VideoCompressorTask::progressStatsUpdateRequested, this, &MainWindow::onUpdateStats);
 
     QVector<int> pids{int(QCoreApplication::applicationPid())};
     procMonitor->setPIDs(pids);
@@ -256,7 +253,7 @@ void MainWindow::onCompressionFinished(bool success, const QString &err)
                               {
       compressing=false;
       startBtn->setEnabled(true);
-      if(procMonitor){ procMonitor->stop(); procMonitor->deleteLater(); }
+      // if(procMonitor){ procMonitor->stop(); procMonitor->deleteLater(); }
       if(success){
         etaLabel->setText("Done");
         threadList->addItem("Compression complete.");

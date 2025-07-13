@@ -58,6 +58,11 @@ void ProcessMonitor::updateStats()
     emit statsUpdated(stats);
 }
 
+// void ProcessMonitor::updateStatsNow()
+// {
+//     updateStats();
+// }
+
 ProcessStats ProcessMonitor::getStatsForPID(int pid)
 {
     ProcessStats stat;
@@ -69,7 +74,6 @@ ProcessStats ProcessMonitor::getStatsForPID(int pid)
 
 #if defined(Q_OS_MAC)
     // --- Real-time CPU% calculation for macOS ---
-    // Uses 'ps' and deltas between samples for %CPU
     static QMap<int, QPair<double, qint64>> lastCpu;
     QString cmd = QString("ps -p %1 -o %cpu=,rss=,comm=").arg(pid);
     QProcess ps;
@@ -87,7 +91,6 @@ ProcessStats ProcessMonitor::getStatsForPID(int pid)
             stat.name = fi.fileName();
             stat.memUsage = currRssMb;
 
-            // Get time (ms)
             qint64 now = QDateTime::currentMSecsSinceEpoch();
 
             if (lastCpu.contains(pid))
@@ -95,8 +98,6 @@ ProcessStats ProcessMonitor::getStatsForPID(int pid)
                 double prevCpu = lastCpu[pid].first;
                 qint64 prevTime = lastCpu[pid].second;
                 double deltaSecs = (now - prevTime) / 1000.0;
-                // Since ps gives %CPU averaged over last second, we just use current value.
-                // For more smoothing, average prevCpu and currCpu:
                 stat.cpuUsage = (currCpu + prevCpu) / 2.0;
             }
             else
@@ -109,19 +110,16 @@ ProcessStats ProcessMonitor::getStatsForPID(int pid)
 #endif
 
 #if defined(Q_OS_WIN)
-    // --- Real-time CPU% calculation for Windows ---
-    static QMap<int, QPair<ULONGLONG, qint64>> lastCpu; // processTime, timestamp
+    static QMap<int, QPair<ULONGLONG, qint64>> lastCpu;
     HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
     if (hProcess != NULL)
     {
-        // Memory usage
         PROCESS_MEMORY_COUNTERS pmc;
         if (GetProcessMemoryInfo(hProcess, &pmc, sizeof(pmc)))
         {
             stat.memUsage = pmc.WorkingSetSize / (1024.0 * 1024.0); // Bytes -> MB
         }
 
-        // CPU usage as % (since process start)
         FILETIME createTime, exitTime, kernelTime, userTime;
         if (GetProcessTimes(hProcess, &createTime, &exitTime, &kernelTime, &userTime))
         {
@@ -152,7 +150,6 @@ ProcessStats ProcessMonitor::getStatsForPID(int pid)
             lastCpu[pid] = qMakePair(totalProcessTime, now);
         }
 
-        // Process name
         TCHAR szProcessName[MAX_PATH] = TEXT("<unknown>");
         if (GetModuleBaseName(hProcess, NULL, szProcessName, sizeof(szProcessName) / sizeof(TCHAR)))
         {
@@ -163,7 +160,6 @@ ProcessStats ProcessMonitor::getStatsForPID(int pid)
 #endif
 
 #if defined(Q_OS_LINUX)
-    // Get name and memory from /proc/[pid]/status
     QFile statusFile(QString("/proc/%1/status").arg(pid));
     if (statusFile.open(QIODevice::ReadOnly))
     {
@@ -182,7 +178,6 @@ ProcessStats ProcessMonitor::getStatsForPID(int pid)
             }
         }
     }
-    // Real-time CPU% for Linux
     static QMap<int, QPair<long, qint64>> lastStats;
     long total_time = 0;
     QFile statFile(QString("/proc/%1/stat").arg(pid));

@@ -50,6 +50,9 @@ private slots:
      */
     void updateStats();
 
+    // public slots:
+    //     void updateStatsNow();
+
 private:
     ProcessStats getStatsForPID(int pid);
     QTimer *m_timer;
