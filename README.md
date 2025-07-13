@@ -1,6 +1,6 @@
-# GPUVideoCompressor
+# Video Compression using OpenCL
 
-**GPUVideoCompressor** is a cross-platform (macOS & Windows) video compression application with a Qt6-based GUI. It features real-time monitoring of CPU, memory, and (if available) GPU usage during compression, leveraging OpenCV and OpenCL for backend processing.
+**Video Compressor OpenCL** is a cross-platform (macOS & Windows) video compression application with a Qt6-based GUI. It features real-time monitoring of CPU, memory, and (if available) GPU usage during compression, leveraging OpenCV and OpenCL for backend processing.
 
 ---
 
